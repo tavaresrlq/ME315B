@@ -1,0 +1,119 @@
+---
+title: "Lab03_tavares"
+format: html
+editor: visual
+---
+
+1\.
+
+```{r}
+install.packages("tidyr")
+library(readr)
+library(dplyr)
+library(stringr)
+library(tidyr)
+
+airlines <- read_csv("airlines.csv")
+airports <- read_csv(
+  "airports.csv",
+  col_select = c(IATA_CODE, CITY, STATE, LATITUDE, LONGITUDE)
+)
+
+#a
+colunas <- cols_only(
+  DESTINATION_AIRPORT = col_character(),
+  ARRIVAL_DELAY = col_double()
+)
+
+#b
+linhasporvez <- 1000000
+
+blocodeinfo <- function(chunk, pos) {
+  chunk |>
+    #c
+    filter(!str_starts(DESTINATION_AIRPORT, "1")) |>
+    #d
+    drop_na(DESTINATION_AIRPORT, ARRIVAL_DELAY) |>
+    #e
+    group_by(DESTINATION_AIRPORT) |>
+    summarise(
+      atrasosoma = sum(ARRIVAL_DELAY),
+      total_voos = n(),
+      .groups = "drop"
+    )
+}
+
+estatisticas <- read_csv_chunked(
+  file = "flights.csv.zip",
+  callback = DataFrameCallback$new(blocodeinfo),
+  chunk_size = linhasporvez,
+  col_types = colunas
+)
+
+#f
+flights <- estatisticas |>
+  group_by(DESTINATION_AIRPORT) |>
+  summarise(
+    ARRIVAL_DELAY = sum(atrasosoma) / sum(total_voos),
+    .groups = "drop"
+  )
+```
+
+2\.
+
+```{r}
+#a: DESTINATION_AIRPORT
+
+#b: IATA_CODE
+
+#c
+aeroportos_ausentes <- flights |>
+  anti_join(airports, by = c("DESTINATION_AIRPORT" = "IATA_CODE"))
+
+#d e e
+flights <- flights |>
+  left_join(
+    airports |> select(IATA_CODE, CITY, STATE),
+    by = c("DESTINATION_AIRPORT" = "IATA_CODE")
+  )
+```
+
+3\.
+
+```{r}
+aeroportos_por_estado <- airports |>
+  count(STATE, name = "num_aeroportos", sort = TRUE)
+
+aeroportos_por_estado
+```
+
+4\.
+
+```{r}
+#a
+library(leaflet)
+
+# b e c
+this <- flights |>
+  left_join(
+    airports |> select(IATA_CODE, LATITUDE, LONGITUDE),
+    by = c("DESTINATION_AIRPORT" = "IATA_CODE")
+  ) |>
+  drop_na(LATITUDE, LONGITUDE) |>
+  leaflet() |>
+  addTiles() |>
+  addMarkers(
+    lng = ~LONGITUDE,
+    lat = ~LATITUDE,
+    popup = ~paste0("<b>Aeroporto: </b>", DESTINATION_AIRPORT, 
+                    "<br><b>Atraso médio: </b>", round(ARRIVAL_DELAY, 2), " min")
+  )
+
+# d
+this
+```
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
