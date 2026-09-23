@@ -1,0 +1,115 @@
+---
+title: "Lab07_tavares"
+format: pdf
+editor: visual
+---
+
+1.  Baixe o arquivo `uwmadison.sqlite3`. Conecte-se a ele usando o pacote `RSQLite`, armazenando a conexão em uma variável `conn`.
+
+```{r}
+library(DBI)
+library(RSQLite)
+
+# Conectando ao banco local e armazenando na variável conn
+conn <- dbConnect(RSQLite::SQLite(), "uwmadison.sqlite3")
+```
+
+2.  Quem são e quantos são os professores que lecionaram disciplinas cujo tópico era estatística (`subjects.abbreviation='STAT'`);
+
+```{sql connection=conn}
+SELECT 
+    COUNT(DISTINCT i.name) AS quantidade_professores,
+    GROUP_CONCAT(DISTINCT i.name) AS nomes_professores
+FROM instructors i
+JOIN teachings t ON i.id = t.instructor_id
+JOIN sections s ON t.section_uuid = s.uuid
+JOIN course_offerings co ON s.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT';
+```
+
+3.  O GPA americano é definido numa escala de 0 a 4, em que A = 4, AB = 3.5, B = 3, BC = 2.5, C = 2, D = 1 e F = 0. Determinando a nota média de cada oferecimento pela ponderação da quantidade de alunos em cada extrato com os valores numéricos de cada conceito, indique (no que se referente a disciplinas no assunto de estatística):
+
+    I- Quem é o professor mais difícil?
+
+```{sql connection=conn}
+SELECT i.name AS professor,
+       SUM(g.a_count*4 + g.ab_count*3.5 + g.b_count*3 + g.bc_count*2.5 + g.c_count*2 + g.d_count*1) * 1.0 / 
+       SUM(g.a_count + g.ab_count + g.b_count + g.bc_count + g.c_count + g.d_count + g.f_count) AS gpa_medio
+FROM grade_distributions g
+JOIN sections s ON g.course_offering_uuid = s.course_offering_uuid
+JOIN teachings t ON s.uuid = t.section_uuid
+JOIN instructors i ON t.instructor_id = i.id
+JOIN subject_memberships sm ON s.course_offering_uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT'
+GROUP BY i.name
+HAVING gpa_medio IS NOT NULL
+ORDER BY gpa_medio ASC
+LIMIT 1;
+```
+
+II - Quem é o professor mais fácil?
+
+```{sql connection=conn}
+SELECT i.name AS professor,
+       SUM(g.a_count*4 + g.ab_count*3.5 + g.b_count*3 + g.bc_count*2.5 + g.c_count*2 + g.d_count*1) * 1.0 / 
+       SUM(g.a_count + g.ab_count + g.b_count + g.bc_count + g.c_count + g.d_count + g.f_count) AS gpa_medio
+FROM grade_distributions g
+JOIN sections s ON g.course_offering_uuid = s.course_offering_uuid
+JOIN teachings t ON s.uuid = t.section_uuid
+JOIN instructors i ON t.instructor_id = i.id
+JOIN subject_memberships sm ON s.course_offering_uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT'
+GROUP BY i.name
+ORDER BY gpa_medio DESC
+LIMIT 1;
+```
+
+III - Qual é a disciplina mais difícil?
+
+```{sql connection=conn}
+SELECT co.name AS disciplina,
+       SUM(g.a_count*4 + g.ab_count*3.5 + g.b_count*3 + g.bc_count*2.5 + g.c_count*2 + g.d_count*1) * 1.0 / 
+       SUM(g.a_count + g.ab_count + g.b_count + g.bc_count + g.c_count + g.d_count + g.f_count) AS gpa_medio
+FROM grade_distributions g
+JOIN course_offerings co ON g.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT'
+GROUP BY co.name
+HAVING gpa_medio IS NOT NULL
+ORDER BY gpa_medio ASC
+LIMIT 1;
+```
+
+IV - Qual é a disciplina mais fácil?
+
+```{sql connection=conn}
+SELECT co.name AS disciplina,
+       SUM(g.a_count*4 + g.ab_count*3.5 + g.b_count*3 + g.bc_count*2.5 + g.c_count*2 + g.d_count*1) * 1.0 / 
+       SUM(g.a_count + g.ab_count + g.b_count + g.bc_count + g.c_count + g.d_count + g.f_count) AS gpa_medio
+FROM grade_distributions g
+JOIN course_offerings co ON g.course_offering_uuid = co.uuid
+JOIN subject_memberships sm ON co.uuid = sm.course_offering_uuid
+JOIN subjects sub ON sm.subject_code = sub.code
+WHERE sub.abbreviation = 'STAT'
+GROUP BY co.name
+ORDER BY gpa_medio DESC
+LIMIT 1;
+```
+
+4.  Desconecte do banco de dados.
+
+```{r}
+dbDisconnect(conn)
+```
+
+5.  Data de hora
+
+```{r}
+Sys.setenv(TZ = "America/Sao_Paulo")
+Sys.time()
+```
